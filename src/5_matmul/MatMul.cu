@@ -71,8 +71,8 @@ Result computeFromDevice(const MatrixSet &m, int blockSize) {
 
     result.timer.reset();
     computeFromBlock<<<grid, block, sharedMem * 2>>>(d_A, d_B, d_C);
-    result.timer.stop();
     cudaDeviceSynchronize();
+    result.timer.stop();
 
     cudaMemcpy(m.C.ptr, d_C.ptr, d_C.size(), cudaMemcpyDeviceToHost);
     cudaFree(d_A.ptr);
