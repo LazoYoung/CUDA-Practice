@@ -24,13 +24,10 @@ __global__ void computeFromBlock(Matrix A, Matrix B, Matrix C) { // NOLINT(*-unn
     float *ptr_A = shared;
     float *ptr_B = &ptr_A[blockSize * blockSize];
     Matrix sub_C(C, blockSize, blockIdx.y, blockIdx.x);
-//    Matrix sub_C(C, blockSize, blockIdx.x, blockIdx.y);
 
     for (int step = 0; step < A.cols / blockSize; ++step) {
         Matrix sub_A(A, blockSize, blockIdx.y, step);
         Matrix sub_B(B, blockSize, step, blockIdx.x);
-//        Matrix sub_A(A, blockSize, blockIdx.x, step);
-//        Matrix sub_B(B, blockSize, step, blockIdx.y);
         Matrix shared_A(ptr_A, blockSize);
         Matrix shared_B(ptr_B, blockSize);
 
@@ -38,7 +35,6 @@ __global__ void computeFromBlock(Matrix A, Matrix B, Matrix C) { // NOLINT(*-unn
         shared_A.set(row, col, sub_A.get(row, col));
         shared_B.set(row, col, sub_B.get(row, col));
 
-        // Use barrier to wait until the matrices are fully loaded
         __syncthreads();
 
         for (int i = 0; i < blockSize; ++i) {
@@ -46,15 +42,14 @@ __global__ void computeFromBlock(Matrix A, Matrix B, Matrix C) { // NOLINT(*-unn
             sub_C.add(row, col, mul);
         }
 
-        // Wait for aggregation to finish before loading the next step
         __syncthreads();
     }
 }
 
 __global__ void computeFromBlockOptimized(Matrix A, Matrix B, Matrix C) { // NOLINT(*-unnecessary-value-param)
     uint blockSize = blockDim.x;
-    uint row = threadIdx.y;  // C-row that top-left of this sub_C maps to
-    uint col = threadIdx.x;  // C-column that top-left of this sub_C maps to
+    uint row = threadIdx.y;
+    uint col = threadIdx.x;
     float *ptr_A = shared;
     float *ptr_B = &ptr_A[blockSize * blockSize];
     Matrix sub_C(C, blockSize, blockIdx.y, blockIdx.x);
@@ -66,18 +61,15 @@ __global__ void computeFromBlockOptimized(Matrix A, Matrix B, Matrix C) { // NOL
         Matrix shared_A(ptr_A, blockSize);
         Matrix shared_B(ptr_B, blockSize);
 
-        // Load sub-matrix A & B into shared memory
         shared_A.set(row, col, sub_A.get(row, col));
         shared_B.set(row, col, sub_B.get(row, col));
 
-        // Use barrier to wait until the matrices are fully loaded
         __syncthreads();
 
         for (int i = 0; i < blockSize; ++i) {
             sum += __fmul_rn(shared_A.get(row, i), shared_B.get(i, col));
         }
 
-        // Wait for aggregation to finish before loading the next step
         __syncthreads();
     }
 
